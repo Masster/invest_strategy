@@ -52,6 +52,9 @@ def main(full=False):
     df["row"] = np.arange(len(df))
     df.to_parquet(out / "PANEL_1440.parquet", index=False)
     np.save(out / "PANEL_1440.npy", R)
+    if full:   # holdout не просматриваем здесь: только сохранение
+        print("saved", len(df), out)
+        return
     pd.set_option("display.width", 250)
     print(len(df))
     print(df.sort_values("sharpe", ascending=False).head(30)[["family", "code", "params", "sharpe", "total", "pmr", "m_min", "mdd", "turnover"]].round(3).to_string())
