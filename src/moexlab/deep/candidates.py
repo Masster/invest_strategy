@@ -51,8 +51,11 @@ def returns(P, Wt):
 def vol_target(r, target_ann=0.10, lookback=60, max_scale=5.0, min_obs=20):
     """Масштаб по прошлой реализованной волатильности (каузально: scale для дня t+1 — из r[..t])."""
     s = pd.Series(r)
-    sd = s.rolling(lookback, min_periods=min_obs).std().shift(1)
-    scale = (target_ann / np.sqrt(252) / sd).clip(upper=max_scale).fillna(0.0).to_numpy()
+    # окно считается только по дням, когда стратегия уже существовала (до первого ненулевого дня — масштаб 0)
+    started = (s != 0).cummax()
+    s2 = s.where(started)
+    sd = s2.rolling(lookback, min_periods=min_obs).std().shift(1)
+    scale = (target_ann / np.sqrt(252) / sd.where(sd > 0)).clip(upper=max_scale).fillna(0.0).to_numpy()
     return r * scale, scale
 
 
