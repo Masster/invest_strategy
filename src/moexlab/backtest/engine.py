@@ -280,9 +280,17 @@ class Engine:
                 return
             dirs = {od.direction for od, _ in trig}
             if len(dirs) > 1:
+                # Сработали заявки разных направлений: порядок внутри свечи неизвестен.
+                # Пропуск сделки = заглядывание в будущее (мы «знаем», что цена потом развернулась).
+                # Берём направление с худшим исходом при худшем внутрисвечном пути: после входа цена
+                # идёт к противоположному экстремуму свечи, затем к закрытию.
+                def worst_case_R(od_ref):
+                    od_, ref_ = od_ref
+                    adv = l if od_.direction > 0 else h
+                    return od_.direction * (adv - ref_)
+                trig.sort(key=worst_case_R)
                 if self.record_events:
-                    events.append(dict(ts=a["ts"][i], code=self.ins[k].code, event="AMBIGUOUS_SKIP"))
-                return
+                    events.append(dict(ts=a["ts"][i], code=self.ins[k].code, event="AMBIGUOUS_WORST_CASE"))
             od, ref = trig[0]
             d = od.direction
             is_stop_entry = od.kind == "stop" and ref != o

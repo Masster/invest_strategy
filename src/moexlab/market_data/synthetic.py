@@ -110,3 +110,45 @@ def generate_minute_bars(
         df["secid"] = code
     df.index.name = "ts"
     return df
+
+
+def generate_daily_bars(n_days: int = 1500, seed: int = 0, s0: float = 100.0, tick: float = 0.01,
+                        daily_vol: float = 0.015, ar1: float = 0.0, trend_persist: float = 0.0,
+                        start: str = "2020-01-03", code: str = "SYN") -> pd.DataFrame:
+    """Дневные свечи из единого внутридневного пути (78 шагов). ar1 — автокорреляция дневных доходностей;
+    trend_persist — медленный скрытый дрейф (AR(1) с коэффициентом 0.99), амплитуда в долях daily_vol.
+    Только для проверки конвейера (NULL / внедрённое преимущество)."""
+    rng = np.random.default_rng(seed)
+    sub = 78
+    days = pd.bdate_range(start, periods=n_days)
+    h, w, a_, b_ = 1.0, 0.05, 0.10, 0.85
+    ret = np.zeros(n_days)
+    mu = 0.0
+    prev = 0.0
+    o = np.empty(n_days); hi = np.empty(n_days); lo = np.empty(n_days); c = np.empty(n_days)
+    logp = np.log(s0)
+    for t in range(n_days):
+        z = rng.standard_normal()
+        sig = daily_vol * np.sqrt(h)
+        h = min(max(w + a_ * z * z * h + b_ * h, 0.2), 6.0)
+        mu = 0.99 * mu + trend_persist * daily_vol * 0.14 * rng.standard_normal()
+        drift = ar1 * prev + mu
+        steps = rng.standard_normal(sub) * sig / np.sqrt(sub) + drift / sub
+        gap = rng.standard_normal() * sig * 0.2
+        path = logp + gap + np.cumsum(steps)
+        o[t] = np.exp(logp + gap)
+        hi[t] = np.exp(max(path.max(), logp + gap))
+        lo[t] = np.exp(min(path.min(), logp + gap))
+        c[t] = np.exp(path[-1])
+        prev = path[-1] - logp
+        logp = path[-1]
+    r = lambda x: np.round(x / tick) * tick  # noqa: E731
+    df = pd.DataFrame({"open": r(o), "high": r(hi), "low": r(lo), "close": r(c),
+                       "volume": rng.poisson(10000, n_days).astype(float)},
+                      index=pd.DatetimeIndex(days).tz_localize("UTC"))
+    df["high"] = df[["open", "high", "close"]].max(axis=1)
+    df["low"] = df[["open", "low", "close"]].min(axis=1)
+    df["trading_day"] = df.index.date
+    df["secid"] = code
+    df.index.name = "ts"
+    return df

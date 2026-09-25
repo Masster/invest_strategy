@@ -80,12 +80,14 @@ def test_stop_checked_before_target_in_same_bar():
     assert tr.iloc[0]["exit_reason"] == "INITIAL_STOP"
 
 
-def test_opposite_triggers_in_one_bar_are_skipped():
+def test_opposite_triggers_in_one_bar_take_worst_case_not_skip():
+    # пропуск такой сделки был бы заглядыванием в будущее; берём худший из двух вариантов
     df = _bars([(100, 100, 100, 100), (100, 110, 90, 100), (100, 100, 100, 100)])
     st = Scripted({0: [EntryOrder(+1, "stop", 105, "A"), EntryOrder(-1, "stop", 95, "B")]},
                   ExitPolicy("atr", 5, "none", intraday=True))
     res = _run(df, st)
-    assert res.trades.empty and any(e["event"] == "AMBIGUOUS_SKIP" for e in res.events)
+    assert len(res.trades) == 1 and res.trades.iloc[0]["R"] == pytest.approx(-1.0)
+    assert any(e["event"] == "AMBIGUOUS_WORST_CASE" for e in res.events)
 
 
 def test_trailing_stop_is_monotonic_and_uses_closed_bars():

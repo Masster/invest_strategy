@@ -1,0 +1,73 @@
+[
+  {
+    "kind": "NULL",
+    "n_configs": 77,
+    "errors": 0,
+    "best_in_sample": "TF_DONCHIAN|{\"n\": 60}|f76fa5f24612",
+    "best_in_sample_sharpe_ann": 0.7091226351874658,
+    "dsr": {
+      "sr": 0.044670527197611075,
+      "sr_benchmark": 0.4946397878690897,
+      "dsr": 3.833739483800299e-68,
+      "n_trials": 77
+    },
+    "fdr_discoveries": 0,
+    "fdr_discovered": [],
+    "spa_pvalue": 0.6133866133866134,
+    "reality_check_pvalue": 0.8001998001998002,
+    "pbo": 0.49783549783549785,
+    "wf_oos_sharpe_by_family": {
+      "MOM_TSMOM": 0.312,
+      "TF_EMA_CROSS": 0.049,
+      "MR_ZSCORE": 0.045,
+      "VOL_SQUEEZE": 0.022,
+      "TF_DONCHIAN": -0.017,
+      "VOL_RANGE_EXPANSION": -0.346,
+      "TF_SUPERTREND": -0.388,
+      "CONTROL_RANDOM": -0.652,
+      "MR_RSI": -0.703,
+      "BASELINE_01_RBREAKER_DAILY": -10.408
+    }
+  },
+  {
+    "kind": "PLANTED",
+    "n_configs": 77,
+    "errors": 0,
+    "best_in_sample": "TF_DONCHIAN|{\"n\": 100}|f76fa5f24612",
+    "best_in_sample_sharpe_ann": 1.7426829773110992,
+    "dsr": {
+      "sr": 0.10977870889340818,
+      "sr_benchmark": 0.5215500956186625,
+      "dsr": 2.5080823289342492e-57,
+      "n_trials": 77
+    },
+    "fdr_discoveries": 27,
+    "fdr_discovered": [
+      "TF_DONCHIAN|{\"n\": 10}|f76fa5f24612",
+      "TF_DONCHIAN|{\"n\": 20}|f76fa5f24612",
+      "TF_DONCHIAN|{\"n\": 40}|8cdfd86f9886",
+      "TF_DONCHIAN|{\"n\": 40}|a7fc15b4bae1",
+      "TF_DONCHIAN|{\"n\": 40}|f76fa5f24612",
+      "TF_DONCHIAN|{\"n\": 60}|8cdfd86f9886",
+      "TF_DONCHIAN|{\"n\": 60}|a7fc15b4bae1",
+      "TF_DONCHIAN|{\"n\": 60}|f76fa5f24612",
+      "TF_DONCHIAN|{\"n\": 100}|8cdfd86f9886",
+      "TF_DONCHIAN|{\"n\": 100}|a7fc15b4bae1"
+    ],
+    "spa_pvalue": 0.000999000999000999,
+    "reality_check_pvalue": 0.4355644355644356,
+    "pbo": 0.048701298701298704,
+    "wf_oos_sharpe_by_family": {
+      "TF_DONCHIAN": 1.948,
+      "MOM_TSMOM": 1.775,
+      "TF_EMA_CROSS": 1.685,
+      "TF_SUPERTREND": 1.136,
+      "VOL_SQUEEZE": 0.647,
+      "MR_RSI": 0.369,
+      "VOL_RANGE_EXPANSION": 0.188,
+      "CONTROL_RANDOM": -0.127,
+      "MR_ZSCORE": -1.982,
+      "BASELINE_01_RBREAKER_DAILY": -10.532
+    }
+  }
+]
