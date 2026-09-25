@@ -1,0 +1,6 @@
+family,test_period,selected,train_score,test_sharpe,test_return,test_days
+RBREAKER_2_1,2026-01,"RBREAKER_2_1|{""breakout_k"": 0.35, ""reversal_k"": 0.07, ""setup_k"": 0.35}|cf6e0a81bf7f",-6.225129460964234,-11.054803003038403,-0.17525748823096265,19
+RBREAKER_2_1,2026-02,"RBREAKER_2_1|{""breakout_k"": 0.35, ""reversal_k"": 0.07, ""setup_k"": 0.35}|cf6e0a81bf7f",-7.559524189538134,-8.964032700879814,-0.16931568629214006,20
+RBREAKER_2_1,2026-03,"RBREAKER_2_1|{""breakout_k"": 0.35, ""reversal_k"": 0.07, ""setup_k"": 0.45}|cf6e0a81bf7f",-8.050967433834451,-7.489291922676469,-0.12376909641596454,22
+RBREAKER_2_1,2026-04,"RBREAKER_2_1|{""breakout_k"": 0.35, ""reversal_k"": 0.07, ""setup_k"": 0.45}|cf6e0a81bf7f",-8.158394794350535,-8.488384191789002,-0.13037557955080842,22
+RBREAKER_2_1,2026-05,"RBREAKER_2_1|{""breakout_k"": 0.35, ""reversal_k"": 0.07, ""setup_k"": 0.45}|cf6e0a81bf7f",-8.562675823856193,-13.777867388158406,-0.17667908547147002,21
