@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[3]
 SNAP = ROOT / "data/db/snapshot"
 NORM = ROOT / "data/normalized"
 CACHE = ROOT / "data/cache"
-CODE_VERSION = "norm-v3"
+CODE_VERSION = "norm-v4"   # v4: дивидендная корректировка акций (total return)
 
 FIRST_DAY = date(2025, 9, 25)
 LAST_DAY = date(2026, 9, 24)            # 2026-09-25 неполный
@@ -154,11 +154,36 @@ def build_future(base: str, roll: RollConfig | None = None) -> tuple[pd.DataFram
     return out, {"roll_log": log, "active": {str(k): v for k, v in active.items()}}
 
 
+DIVIDENDS = ROOT / "research/dividends.csv"
+
+
 def build_equity(ticker: str) -> tuple[pd.DataFrame, dict]:
+    """Акции: цены приводятся к полной доходности (total return) — все цены ДО дня отсечки умножаются на
+    (1 − D / close_{последний день с дивидендом}). Постоянный множитель на всей предыдущей истории не меняет
+    ни доходностей, ни сравнений уровней, поэтому не создаёт заглядывания; сделка через отсечку получает
+    валовый дивиденд (лонг) или платит его (шорт). Налог 13% не учитывается (допущение)."""
     d = _session_filter(raw_candles(ticker))
     d["secid"] = ticker
     d["adj"] = 1.0
-    return d, {"roll_log": []}
+    log = []
+    if DIVIDENDS.exists():
+        dv = pd.read_csv(DIVIDENDS)
+        dv = dv[dv["ticker"] == ticker]
+        for _, r in dv.iterrows():
+            t1 = pd.Timestamp(r["t_minus_1"]).date()
+            ex = d.loc[d["day"] > t1, "day"]
+            if ex.empty:
+                continue
+            ex_day = ex.iloc[0]
+            before = d["day"] < ex_day
+            if not before.any():
+                continue
+            last_close = float(d.loc[before, "close"].iloc[-1])
+            f = 1.0 - float(r["dividend_rub"]) / last_close
+            for c in ("open", "high", "low", "close"):
+                d.loc[before, c] = d.loc[before, c] * f
+            log.append(f"dividend {r['dividend_rub']} ex {ex_day} factor {f:.5f}")
+    return d, {"roll_log": [], "dividend_log": log}
 
 
 def spec(code: str) -> dict:

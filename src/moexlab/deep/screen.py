@@ -69,7 +69,7 @@ def load_arrays(code: str, tf: int, end=D.DEV_END, start=D.FIRST_DAY, cal: np.nd
 
 
 def run_job(code: str, tf: int, families: list[str] | None = None, tag: str = "s1", end=D.DEV_END,
-            tariff: str = "TRADER", zero_cost: bool = False) -> dict:
+            tariff: str = "TRADER", zero_cost: bool = False, eod_mode: str | None = None) -> dict:
     out_dir = SCREEN / tag
     out_dir.mkdir(parents=True, exist_ok=True)
     fp = out_dir / f"{code}_{tf}.parquet"
@@ -107,7 +107,11 @@ def run_job(code: str, tf: int, families: list[str] | None = None, tag: str = "s
             dirs = [fixed_dir] if fixed_dir is not None else [1, -1, 0]
             if fixed_eod is not None:
                 eods = [bool(fixed_eod) or is_eq]
-            elif fam.intraday or is_eq:
+            elif fam.intraday:
+                eods = [True]
+            elif eod_mode == "overnight_only":
+                eods = [False]
+            elif is_eq:
                 eods = [True]
             elif tf == 1440:
                 eods = [False, True]
@@ -155,11 +159,11 @@ def _worker(args):
 
 
 def run_all(codes=None, tfs=None, families=None, tag="s1", procs=None, end=D.DEV_END, tariff="TRADER",
-            zero_cost=False):
+            zero_cost=False, eod_mode=None):
     import multiprocessing as mp
     codes = codes or D.ALL_CODES
     tfs = tfs or D.TIMEFRAMES
-    jobs = [(c, tf, families, tag, end, tariff, zero_cost) for tf in sorted(tfs, reverse=True) for c in codes]
+    jobs = [(c, tf, families, tag, end, tariff, zero_cost, eod_mode) for tf in sorted(tfs, reverse=True) for c in codes]
     # тяжёлые (1m) — первыми, чтобы выровнять загрузку
     jobs.sort(key=lambda j: j[1])
     procs = procs or os.cpu_count()
