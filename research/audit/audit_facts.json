@@ -1,0 +1,146 @@
+{
+ "schema_1m": [
+  {
+   "column_name": "ticker",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "interval",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "ts",
+   "column_type": "TIMESTAMP WITH TIME ZONE"
+  },
+  {
+   "column_name": "open",
+   "column_type": "DOUBLE"
+  },
+  {
+   "column_name": "high",
+   "column_type": "DOUBLE"
+  },
+  {
+   "column_name": "low",
+   "column_type": "DOUBLE"
+  },
+  {
+   "column_name": "close",
+   "column_type": "DOUBLE"
+  },
+  {
+   "column_name": "volume",
+   "column_type": "DOUBLE"
+  }
+ ],
+ "schema_instruments": [
+  {
+   "column_name": "ticker",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "kind",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "base",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "uid",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "figi",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "class_code",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "lot",
+   "column_type": "INTEGER"
+  },
+  {
+   "column_name": "tick",
+   "column_type": "DOUBLE"
+  },
+  {
+   "column_name": "tick_value",
+   "column_type": "DOUBLE"
+  },
+  {
+   "column_name": "expiration",
+   "column_type": "DATE"
+  },
+  {
+   "column_name": "meta",
+   "column_type": "JSON"
+  }
+ ],
+ "schema_fetch_log": [
+  {
+   "column_name": "ticker",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "interval",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "day",
+   "column_type": "DATE"
+  },
+  {
+   "column_name": "n_rows",
+   "column_type": "INTEGER"
+  },
+  {
+   "column_name": "source",
+   "column_type": "VARCHAR"
+  },
+  {
+   "column_name": "fetched_at",
+   "column_type": "TIMESTAMP WITH TIME ZONE"
+  }
+ ],
+ "duplicate_ticker_ts": 0,
+ "tick_value_missing_series": [
+  "CRH6",
+  "SiH6",
+  "BRM6",
+  "MXH6",
+  "GZM6",
+  "BRN6",
+  "BRX5",
+  "MXM6",
+  "BRF6",
+  "BRV5",
+  "BRG6",
+  "BRJ6",
+  "SRH6",
+  "RIM6",
+  "BRH6",
+  "RIH6",
+  "GDH6",
+  "GDM6",
+  "SiM6",
+  "BRQ6",
+  "CRM6",
+  "BRK6",
+  "BRU6",
+  "SRM6",
+  "GZH6",
+  "RNM6",
+  "RNH6"
+ ],
+ "im_present": "93",
+ "fetch_log": [
+  {
+   "interval": "1m",
+   "n": 10597,
+   "empty": 796.0
+  }
+ ]
+}
