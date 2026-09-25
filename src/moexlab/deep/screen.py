@@ -69,7 +69,7 @@ def load_arrays(code: str, tf: int, end=D.DEV_END, start=D.FIRST_DAY, cal: np.nd
 
 
 def run_job(code: str, tf: int, families: list[str] | None = None, tag: str = "s1", end=D.DEV_END,
-            tariff: str = "TRADER") -> dict:
+            tariff: str = "TRADER", zero_cost: bool = False) -> dict:
     out_dir = SCREEN / tag
     out_dir.mkdir(parents=True, exist_ok=True)
     fp = out_dir / f"{code}_{tf}.parquet"
@@ -80,6 +80,8 @@ def run_job(code: str, tf: int, families: list[str] | None = None, tag: str = "s
     A = load_arrays(code, tf, end=end, cal=cal)
     ctx = Ctx(A, tf, code)
     costs = cost_model(code, A, tariff)
+    if zero_cost:
+        costs = {k: 0.0 for k in costs}
     is_eq = code in D.EQUITIES
     mkeys = M.month_keys(cal)
     months = np.unique(mkeys)
@@ -152,11 +154,12 @@ def _worker(args):
         return {"code": args[0], "tf": args[1], "error": traceback.format_exc()}
 
 
-def run_all(codes=None, tfs=None, families=None, tag="s1", procs=None, end=D.DEV_END):
+def run_all(codes=None, tfs=None, families=None, tag="s1", procs=None, end=D.DEV_END, tariff="TRADER",
+            zero_cost=False):
     import multiprocessing as mp
     codes = codes or D.ALL_CODES
     tfs = tfs or D.TIMEFRAMES
-    jobs = [(c, tf, families, tag, end) for tf in sorted(tfs, reverse=True) for c in codes]
+    jobs = [(c, tf, families, tag, end, tariff, zero_cost) for tf in sorted(tfs, reverse=True) for c in codes]
     # тяжёлые (1m) — первыми, чтобы выровнять загрузку
     jobs.sort(key=lambda j: j[1])
     procs = procs or os.cpu_count()
