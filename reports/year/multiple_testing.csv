@@ -1,0 +1,2 @@
+universe,n_configs,n_eff,best,dsr,spa_p,rc_p,pbo,fdr10,errors
+DAY_FUT,23,3.925211185326552,"TF_EMA_CROSS|{""fast"": 5, ""slow"": 20}|53283cf9bfaf",0.03229897416950849,0.6086956521739131,0.8465767116441779,0.38571428571428573,0,0

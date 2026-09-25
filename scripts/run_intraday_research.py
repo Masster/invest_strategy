@@ -154,6 +154,8 @@ def dev_stage(name: str, workers: int, ledger: Ledger) -> dict:
     rs = RunSettings(**u["rs"])
     g = run_grid(configs, streams, specs, rs, workers)
     res = g["results"]
+    for _, (_, o) in res.items():
+        norm(o)
     M = returns_matrix(res)
     M = M[M.index <= pd.Timestamp(DEV_END, tz="UTC")]
     fam = {cid: cfg.family for cid, (cfg, _) in res.items()}
@@ -218,11 +220,20 @@ def select(dev: dict) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("wf_oos_sharpe", ascending=False)
 
 
+def norm(out: dict) -> dict:
+    """Индекс дневных рядов движка (даты торговых дней) -> UTC-метки."""
+    for k in ("daily", "daily_by_instrument"):
+        x = out.get(k)
+        if x is not None and len(x) and getattr(x.index, "tz", None) is None:
+            x.index = pd.DatetimeIndex(pd.to_datetime(x.index)).tz_localize("UTC")
+    return out
+
+
 def run_cfg(cfg, streams, specs, rs_kw, scenario="NORMAL", commission=None):
     kw = dict(rs_kw)
     if commission is not None:
         kw["commission_fraction"] = commission
-    return run_single(cfg, streams, specs, RunSettings(scenario=scenario, **kw))
+    return norm(run_single(cfg, streams, specs, RunSettings(scenario=scenario, **kw)))
 
 
 def seg(out: dict, start: str, end: str) -> dict:
@@ -314,12 +325,34 @@ def main(universes: list[str], workers: int):
                        execution_model="ConservativeL1", cost_model="NORMAL/STRESS_1")
         if name == "RB_FUT":
             rb_surface(dev)
-    pd.DataFrame(stats_rows).to_csv(REPORTS / "multiple_testing.csv", index=False)
+    merge_csv(REPORTS / "multiple_testing.csv", pd.DataFrame(stats_rows), universes)
     if sel_all:
-        pd.concat(sel_all).to_csv(REPORTS / "selection_all.csv", index=False)
-    pd.DataFrame(hold_rows).to_csv(REPORTS / "holdout.csv", index=False)
-    (REPORTS / "data_quality.md").write_text("# Качество данных (T-Invest, минутные свечи)\n\n" + "\n".join(dq_all),
-                                             encoding="utf-8")
+        merge_csv(REPORTS / "selection_all.csv", pd.concat(sel_all), universes)
+    merge_csv(REPORTS / "holdout.csv", pd.DataFrame(hold_rows), universes)
+    for name, part in zip(universes, split_dq(dq_all)):
+        (REPORTS / f"{name}_data_quality.md").write_text("\n".join(part), encoding="utf-8")
+
+
+def merge_csv(path: Path, new: pd.DataFrame, universes: list[str]) -> None:
+    """Сводные таблицы дополняются: строки перезапущенных вселенных заменяются, остальные сохраняются."""
+    if path.exists():
+        old = pd.read_csv(path)
+        if "universe" in old:
+            old = old[~old["universe"].isin(universes)]
+        new = pd.concat([old, new], ignore_index=True)
+    new.to_csv(path, index=False)
+
+
+def split_dq(lines: list[str]) -> list[list[str]]:
+    parts, cur = [], []
+    for ln in lines:
+        if ln.startswith("## ") and cur:
+            parts.append(cur)
+            cur = []
+        cur.append(ln)
+    if cur:
+        parts.append(cur)
+    return parts
 
 
 def rb_surface(dev: dict):
