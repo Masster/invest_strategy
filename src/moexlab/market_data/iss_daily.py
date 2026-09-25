@@ -121,3 +121,49 @@ def build_daily_universe(root: str | Path, bases: list[str], asof: date, monthly
             issues.append(f"{b}: {int(low_vol)} active days with volume < {min_volume}")
         res[b] = DailyUniverseItem(base=b, stream=stream, series=by_sec, active=active, issues=issues)
     return res
+
+
+def split_adjust(df: pd.DataFrame, jump: float = 2.5) -> tuple[pd.DataFrame, list[str]]:
+    """Корректировка сплитов/консолидаций по наблюдаемому разрыву open_t / close_{t-1} (> jump раз).
+
+    Коэффициент округляется до «круглого» (10, 100, 1000, 5000...). Корректируются цены ДО события
+    (стандартная практика; на R-метрики и знаки индикаторов это не влияет). Объём — обратно.
+    """
+    df = df.copy()
+    notes = []
+    ratio = (df["open"] / df["close"].shift(1)).to_numpy()
+    for i in np.where((ratio > jump) | (ratio < 1 / jump))[0]:
+        r = ratio[i]
+        k = r if r > 1 else 1 / r
+        mag = 10 ** np.floor(np.log10(k))
+        k_round = round(k / mag * 2) / 2 * mag
+        f = k_round if r > 1 else 1 / k_round
+        df.iloc[:i, df.columns.get_indexer(["open", "high", "low", "close"])] *= f
+        df.iloc[:i, df.columns.get_loc("volume")] /= f
+        notes.append(f"split-adjust {df.index[i].date()}: factor {f:g} (observed {r:.4g})")
+    return df, notes
+
+
+def build_equity_universe(root: str | Path, tickers: list[str] | None = None) -> dict[str, DailyUniverseItem]:
+    """Дневные свечи акций TQBR: одна «серия» на тикер, корректировка сплитов, дивиденды НЕ скорректированы."""
+    root = Path(root)
+    res = {}
+    for p in sorted(root.glob("*.csv")):
+        t = p.stem
+        if tickers and t not in tickers:
+            continue
+        df = pd.read_csv(p, parse_dates=["date"]).set_index("date").sort_index()
+        df = df[["open", "high", "low", "close", "volume"]].astype(float)
+        df, notes = split_adjust(df)
+        issues = validate_bars(df, t) + notes
+        df["trading_day"] = df.index.date
+        df.index = pd.DatetimeIndex(df.index).tz_localize("UTC")
+        df["secid"] = t
+        for c in ("open", "high", "low", "close"):
+            df[f"a_{c}"] = df[c]
+        df["adj_shift"] = 0.0
+        stream = annotate_daily(df)
+        stream.index.name = "ts"
+        res[t] = DailyUniverseItem(base=t, stream=stream, series={t: df}, active=pd.Series(t, index=sorted(set(df["trading_day"]))),
+                                   issues=issues)
+    return res

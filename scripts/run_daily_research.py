@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from moexlab.instruments.spec import InstrumentSpec  # noqa: E402
-from moexlab.market_data.iss_daily import build_daily_universe  # noqa: E402
+from moexlab.market_data.iss_daily import build_daily_universe, build_equity_universe  # noqa: E402
 from moexlab.reporting import plots  # noqa: E402
 from moexlab.research.grid import GRID_AXES, GRID_VERSION, daily_grid  # noqa: E402
 from moexlab.research.runner import (Ledger, RunSettings, make_config, neighbors, returns_matrix,  # noqa: E402
@@ -48,9 +48,26 @@ WF_TEST_YEARS = [2022, 2023, 2024, 2025]
 # Спецификации: шаг цены — ISS (research/sources.md §7). Стоимость шага приравнена шагу (point_value=1):
 # все результаты считаются в R (прибыль/начальный риск) и в доходности при фиксированном риске на сделку,
 # поэтому зависимость стоимости шага от курса USD/RUB на выводы о сигнале не влияет.
+COMMISSION = 0.0004 if os.environ.get("MOEXLAB_UNIVERSE", "futures") == "equities" else 0.00025
 TICKS = {"Si": 1.0, "RI": 10.0, "MX": 25.0, "GD": 0.1, "SR": 1.0, "GZ": 1.0, "CR": 0.001, "BR": 0.01}
 GROUPS = {"Si": "fx", "CR": "fx", "RI": "equity_index", "MX": "equity_index", "SR": "equity", "GZ": "equity",
           "GD": "commodity", "BR": "commodity"}
+
+
+UNIVERSE = os.environ.get("MOEXLAB_UNIVERSE", "futures")   # futures | equities
+EQUITY_DATA = Path(os.environ.get("MOEXLAB_EQUITY_DATA", ROOT / "data/raw/iss_equity_daily"))
+
+
+def equity_specs(uni):
+    """Акции: издержки задаются в долях цены через «шаг» = 1 б.п. медианной цены (A-14):
+    спред 2 б.п., проскальзывание 2 б.п., стоп +2 б.п.; комиссия 0,04% (Премиум, акции)."""
+    out = {}
+    for t, it in uni.items():
+        tick = float(it.stream["close"].median()) * 1e-4
+        out[t] = InstrumentSpec(t, "equity", tick=tick, tick_value=tick, group="equity", spread_ticks=2.0,
+                                slippage_ticks=2.0, stop_extra_ticks=2.0, margin_fraction=1.0,
+                                source="relative-cost model A-14")
+    return out
 
 
 def specs_for(bases):
@@ -78,8 +95,11 @@ def ann_sharpe(x: pd.Series) -> float:
 
 # ---------------------------------------------------------------------------
 def stage_data():
-    bases = [b for b in TICKS if (DATA / b).exists() and any((DATA / b).glob("*.csv"))]
-    uni = build_daily_universe(DATA, bases, ASOF)
+    if UNIVERSE == "equities":
+        uni = build_equity_universe(EQUITY_DATA)
+    else:
+        bases = [b for b in TICKS if (DATA / b).exists() and any((DATA / b).glob("*.csv"))]
+        uni = build_daily_universe(DATA, bases, ASOF)
     lines = ["# Качество данных (дневные свечи реальных серий, MOEX ISS)", "",
              "DATA_QUALITY = LLM_TRANSCRIBED: данные получены через Firecrawl и перенесены в CSV языковой моделью;",
              "прямой доступ к iss.moex.com из окружения закрыт. Ниже — автоматические проверки.", ""]
@@ -98,10 +118,10 @@ def stage_data():
 
 
 def stage_dev(uni, ledger: Ledger, workers=None):
-    specs = specs_for(list(uni))
+    specs = equity_specs(uni) if UNIVERSE == "equities" else specs_for(list(uni))
     streams = cut({b: it.stream for b, it in uni.items()}, DEV_START, DEV_END)
-    configs = daily_grid()
-    rs = RunSettings(commission_fraction=0.00025)
+    configs = daily_grid(long_only=(UNIVERSE == "equities"))
+    rs = RunSettings(commission_fraction=COMMISSION)
     g = run_grid(configs, streams, specs, rs, workers)
     res = g["results"]
     M = returns_matrix(res)
@@ -169,7 +189,7 @@ def select_candidates(dev) -> list[dict]:
 def stress_and_latency(cfg, streams, specs):
     rows = []
     for sc in ("ZERO", "NORMAL", "STRESS_1", "STRESS_2"):
-        o = run_single(cfg, streams, specs, RunSettings(scenario=sc, commission_fraction=0.00025 if sc != "ZERO" else 0.0))
+        o = run_single(cfg, streams, specs, RunSettings(scenario=sc, commission_fraction=COMMISSION if sc != "ZERO" else 0.0))
         m = summarize(cfg, o)
         rows.append(dict(test="costs", case=sc, **{k: m.get(k) for k in ("n_trades", "expectancy_R", "profit_factor",
                                                                           "sharpe", "max_drawdown", "total_return")}))
@@ -179,7 +199,7 @@ def stress_and_latency(cfg, streams, specs):
         rows.append(dict(test="commission", case=f"{comm:.2%}", **{k: m.get(k) for k in (
             "n_trades", "expectancy_R", "profit_factor", "sharpe", "max_drawdown", "total_return")}))
     for lat in (0, 100, 250, 500, 1000, 2000):
-        o = run_single(cfg, streams, specs, RunSettings(latency_ms=lat, commission_fraction=0.00025))
+        o = run_single(cfg, streams, specs, RunSettings(latency_ms=lat, commission_fraction=COMMISSION))
         m = summarize(cfg, o)
         rows.append(dict(test="latency_ms", case=str(lat), **{k: m.get(k) for k in (
             "n_trades", "expectancy_R", "profit_factor", "sharpe", "max_drawdown", "total_return")}))
@@ -209,7 +229,7 @@ def exit_study(cfg, streams, specs):
         e["max_bars"] = base.get("max_bars")
         e.update(ov)
         c = make_config(cfg.family, dict(cfg.params), ExitPolicy(**e))
-        m = summarize(c, run_single(c, streams, specs, RunSettings(commission_fraction=0.00025)))
+        m = summarize(c, run_single(c, streams, specs, RunSettings(commission_fraction=COMMISSION)))
         rows.append(dict(exit_variant=name, **{k: m.get(k) for k in ("n_trades", "expectancy_R", "profit_factor",
                                                                      "sharpe", "max_drawdown", "win_rate")}))
     # поверхность: начальный стоп × трейлинг (ATR)
@@ -219,7 +239,7 @@ def exit_study(cfg, streams, specs):
             e = dict(base)
             e.update(initial="atr", initial_k=ik, trailing="atr", trailing_k=tk, target_rr=None, partial_rr=None)
             c = make_config(cfg.family, dict(cfg.params), ExitPolicy(**e))
-            m = summarize(c, run_single(c, streams, specs, RunSettings(commission_fraction=0.00025)))
+            m = summarize(c, run_single(c, streams, specs, RunSettings(commission_fraction=COMMISSION)))
             surf.append(dict(initial_k=ik, trailing_k=tk, sharpe=m.get("sharpe"), expectancy_R=m.get("expectancy_R"),
                              n_trades=m.get("n_trades")))
     return pd.DataFrame(rows), pd.DataFrame(surf)
@@ -302,10 +322,10 @@ def main(stage: str = "all", workers=None):
                         f"{tag}: распределение макс. просадки за 1 год (10 000 сценариев, риск 0,5%/сделку)",
                         "макс. просадка, %", {"медиана": mc["maxdd_p50"] * 100, "5% худших": mc["maxdd_p95"] * 100})
         # FINAL HOLDOUT: прогон на полном ряду, оценка только после HOLDOUT_START
-        full = run_single(cfg, full_streams, specs, RunSettings(commission_fraction=0.00025))
+        full = run_single(cfg, full_streams, specs, RunSettings(commission_fraction=COMMISSION))
         mh = summarize(cfg, full, start=HOLDOUT_START)
         md = summarize(cfg, out)
-        s1 = run_single(cfg, full_streams, specs, RunSettings(scenario="STRESS_1", commission_fraction=0.00025))
+        s1 = run_single(cfg, full_streams, specs, RunSettings(scenario="STRESS_1", commission_fraction=COMMISSION))
         mh1 = summarize(cfg, s1, start=HOLDOUT_START)
         wf_r = dev["oos"][cfg.family] if cfg.family in dev["oos"] else pd.Series(dtype=float)
         comp_rows.append(dict(candidate=tag, strategy_id=cfg.id, family=cfg.family, instruments=",".join(specs),

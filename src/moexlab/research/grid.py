@@ -28,7 +28,7 @@ AXES = {
 }
 
 
-def daily_grid():
+def daily_grid(long_only: bool = False):
     g = []
     g += expand_grid("TF_DONCHIAN", {"n": AXES["TF_DONCHIAN"]["n"]}, exits_axes={"trailing_k": AXES["TF_DONCHIAN"]["trailing_k"]},
                      exits_fixed={k: v for k, v in SWING.items() if k != "trailing_k"})
@@ -49,6 +49,10 @@ def daily_grid():
                      exits_fixed={k: v for k, v in DAYTRADE.items() if k != "initial_k"})
     g += expand_grid("CONTROL_RANDOM", AXES["CONTROL_RANDOM"], exits_fixed=dict(initial="atr", initial_k=2.0, trailing="none",
                                                                                 max_bars=5, intraday=False))
+    if long_only:
+        from .runner import make_config
+        from ..strategies.base import ExitPolicy
+        g = [make_config(c.family, dict(dict(c.params), side="long"), ExitPolicy(**dict(c.exits))) for c in g]
     return g
 
 
