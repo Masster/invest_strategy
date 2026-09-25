@@ -1,0 +1,506 @@
+[
+ {
+  "base": "BR",
+  "secid": "BRF0",
+  "expiry_year": 2020,
+  "month_code": "F"
+ },
+ {
+  "base": "BR",
+  "secid": "BRG0",
+  "expiry_year": 2020,
+  "month_code": "G"
+ },
+ {
+  "base": "BR",
+  "secid": "BRH0",
+  "expiry_year": 2020,
+  "month_code": "H"
+ },
+ {
+  "base": "BR",
+  "secid": "BRJ0",
+  "expiry_year": 2020,
+  "month_code": "J"
+ },
+ {
+  "base": "BR",
+  "secid": "BRK0",
+  "expiry_year": 2020,
+  "month_code": "K"
+ },
+ {
+  "base": "BR",
+  "secid": "BRM0",
+  "expiry_year": 2020,
+  "month_code": "M"
+ },
+ {
+  "base": "BR",
+  "secid": "BRN0",
+  "expiry_year": 2020,
+  "month_code": "N"
+ },
+ {
+  "base": "BR",
+  "secid": "BRQ0",
+  "expiry_year": 2020,
+  "month_code": "Q"
+ },
+ {
+  "base": "BR",
+  "secid": "BRU0",
+  "expiry_year": 2020,
+  "month_code": "U"
+ },
+ {
+  "base": "BR",
+  "secid": "BRV0",
+  "expiry_year": 2020,
+  "month_code": "V"
+ },
+ {
+  "base": "BR",
+  "secid": "BRX0",
+  "expiry_year": 2020,
+  "month_code": "X"
+ },
+ {
+  "base": "BR",
+  "secid": "BRZ0",
+  "expiry_year": 2020,
+  "month_code": "Z"
+ },
+ {
+  "base": "BR",
+  "secid": "BRF1",
+  "expiry_year": 2021,
+  "month_code": "F"
+ },
+ {
+  "base": "BR",
+  "secid": "BRG1",
+  "expiry_year": 2021,
+  "month_code": "G"
+ },
+ {
+  "base": "BR",
+  "secid": "BRH1",
+  "expiry_year": 2021,
+  "month_code": "H"
+ },
+ {
+  "base": "BR",
+  "secid": "BRJ1",
+  "expiry_year": 2021,
+  "month_code": "J"
+ },
+ {
+  "base": "BR",
+  "secid": "BRK1",
+  "expiry_year": 2021,
+  "month_code": "K"
+ },
+ {
+  "base": "BR",
+  "secid": "BRM1",
+  "expiry_year": 2021,
+  "month_code": "M"
+ },
+ {
+  "base": "BR",
+  "secid": "BRN1",
+  "expiry_year": 2021,
+  "month_code": "N"
+ },
+ {
+  "base": "BR",
+  "secid": "BRQ1",
+  "expiry_year": 2021,
+  "month_code": "Q"
+ },
+ {
+  "base": "BR",
+  "secid": "BRU1",
+  "expiry_year": 2021,
+  "month_code": "U"
+ },
+ {
+  "base": "BR",
+  "secid": "BRV1",
+  "expiry_year": 2021,
+  "month_code": "V"
+ },
+ {
+  "base": "BR",
+  "secid": "BRX1",
+  "expiry_year": 2021,
+  "month_code": "X"
+ },
+ {
+  "base": "BR",
+  "secid": "BRZ1",
+  "expiry_year": 2021,
+  "month_code": "Z"
+ },
+ {
+  "base": "BR",
+  "secid": "BRF2",
+  "expiry_year": 2022,
+  "month_code": "F"
+ },
+ {
+  "base": "BR",
+  "secid": "BRG2",
+  "expiry_year": 2022,
+  "month_code": "G"
+ },
+ {
+  "base": "BR",
+  "secid": "BRH2",
+  "expiry_year": 2022,
+  "month_code": "H"
+ },
+ {
+  "base": "BR",
+  "secid": "BRJ2",
+  "expiry_year": 2022,
+  "month_code": "J"
+ },
+ {
+  "base": "BR",
+  "secid": "BRK2",
+  "expiry_year": 2022,
+  "month_code": "K"
+ },
+ {
+  "base": "BR",
+  "secid": "BRM2",
+  "expiry_year": 2022,
+  "month_code": "M"
+ },
+ {
+  "base": "BR",
+  "secid": "BRN2",
+  "expiry_year": 2022,
+  "month_code": "N"
+ },
+ {
+  "base": "BR",
+  "secid": "BRQ2",
+  "expiry_year": 2022,
+  "month_code": "Q"
+ },
+ {
+  "base": "BR",
+  "secid": "BRU2",
+  "expiry_year": 2022,
+  "month_code": "U"
+ },
+ {
+  "base": "BR",
+  "secid": "BRV2",
+  "expiry_year": 2022,
+  "month_code": "V"
+ },
+ {
+  "base": "BR",
+  "secid": "BRX2",
+  "expiry_year": 2022,
+  "month_code": "X"
+ },
+ {
+  "base": "BR",
+  "secid": "BRZ2",
+  "expiry_year": 2022,
+  "month_code": "Z"
+ },
+ {
+  "base": "BR",
+  "secid": "BRF3",
+  "expiry_year": 2023,
+  "month_code": "F"
+ },
+ {
+  "base": "BR",
+  "secid": "BRG3",
+  "expiry_year": 2023,
+  "month_code": "G"
+ },
+ {
+  "base": "BR",
+  "secid": "BRH3",
+  "expiry_year": 2023,
+  "month_code": "H"
+ },
+ {
+  "base": "BR",
+  "secid": "BRJ3",
+  "expiry_year": 2023,
+  "month_code": "J"
+ },
+ {
+  "base": "BR",
+  "secid": "BRK3",
+  "expiry_year": 2023,
+  "month_code": "K"
+ },
+ {
+  "base": "BR",
+  "secid": "BRM3",
+  "expiry_year": 2023,
+  "month_code": "M"
+ },
+ {
+  "base": "BR",
+  "secid": "BRN3",
+  "expiry_year": 2023,
+  "month_code": "N"
+ },
+ {
+  "base": "BR",
+  "secid": "BRQ3",
+  "expiry_year": 2023,
+  "month_code": "Q"
+ },
+ {
+  "base": "BR",
+  "secid": "BRU3",
+  "expiry_year": 2023,
+  "month_code": "U"
+ },
+ {
+  "base": "BR",
+  "secid": "BRV3",
+  "expiry_year": 2023,
+  "month_code": "V"
+ },
+ {
+  "base": "BR",
+  "secid": "BRX3",
+  "expiry_year": 2023,
+  "month_code": "X"
+ },
+ {
+  "base": "BR",
+  "secid": "BRZ3",
+  "expiry_year": 2023,
+  "month_code": "Z"
+ },
+ {
+  "base": "BR",
+  "secid": "BRF4",
+  "expiry_year": 2024,
+  "month_code": "F"
+ },
+ {
+  "base": "BR",
+  "secid": "BRG4",
+  "expiry_year": 2024,
+  "month_code": "G"
+ },
+ {
+  "base": "BR",
+  "secid": "BRH4",
+  "expiry_year": 2024,
+  "month_code": "H"
+ },
+ {
+  "base": "BR",
+  "secid": "BRJ4",
+  "expiry_year": 2024,
+  "month_code": "J"
+ },
+ {
+  "base": "BR",
+  "secid": "BRK4",
+  "expiry_year": 2024,
+  "month_code": "K"
+ },
+ {
+  "base": "BR",
+  "secid": "BRM4",
+  "expiry_year": 2024,
+  "month_code": "M"
+ },
+ {
+  "base": "BR",
+  "secid": "BRN4",
+  "expiry_year": 2024,
+  "month_code": "N"
+ },
+ {
+  "base": "BR",
+  "secid": "BRQ4",
+  "expiry_year": 2024,
+  "month_code": "Q"
+ },
+ {
+  "base": "BR",
+  "secid": "BRU4",
+  "expiry_year": 2024,
+  "month_code": "U"
+ },
+ {
+  "base": "BR",
+  "secid": "BRV4",
+  "expiry_year": 2024,
+  "month_code": "V"
+ },
+ {
+  "base": "BR",
+  "secid": "BRX4",
+  "expiry_year": 2024,
+  "month_code": "X"
+ },
+ {
+  "base": "BR",
+  "secid": "BRZ4",
+  "expiry_year": 2024,
+  "month_code": "Z"
+ },
+ {
+  "base": "BR",
+  "secid": "BRF5",
+  "expiry_year": 2025,
+  "month_code": "F"
+ },
+ {
+  "base": "BR",
+  "secid": "BRG5",
+  "expiry_year": 2025,
+  "month_code": "G"
+ },
+ {
+  "base": "BR",
+  "secid": "BRH5",
+  "expiry_year": 2025,
+  "month_code": "H"
+ },
+ {
+  "base": "BR",
+  "secid": "BRJ5",
+  "expiry_year": 2025,
+  "month_code": "J"
+ },
+ {
+  "base": "BR",
+  "secid": "BRK5",
+  "expiry_year": 2025,
+  "month_code": "K"
+ },
+ {
+  "base": "BR",
+  "secid": "BRM5",
+  "expiry_year": 2025,
+  "month_code": "M"
+ },
+ {
+  "base": "BR",
+  "secid": "BRN5",
+  "expiry_year": 2025,
+  "month_code": "N"
+ },
+ {
+  "base": "BR",
+  "secid": "BRQ5",
+  "expiry_year": 2025,
+  "month_code": "Q"
+ },
+ {
+  "base": "BR",
+  "secid": "BRU5",
+  "expiry_year": 2025,
+  "month_code": "U"
+ },
+ {
+  "base": "BR",
+  "secid": "BRV5",
+  "expiry_year": 2025,
+  "month_code": "V"
+ },
+ {
+  "base": "BR",
+  "secid": "BRX5",
+  "expiry_year": 2025,
+  "month_code": "X"
+ },
+ {
+  "base": "BR",
+  "secid": "BRZ5",
+  "expiry_year": 2025,
+  "month_code": "Z"
+ },
+ {
+  "base": "BR",
+  "secid": "BRF6",
+  "expiry_year": 2026,
+  "month_code": "F"
+ },
+ {
+  "base": "BR",
+  "secid": "BRG6",
+  "expiry_year": 2026,
+  "month_code": "G"
+ },
+ {
+  "base": "BR",
+  "secid": "BRH6",
+  "expiry_year": 2026,
+  "month_code": "H"
+ },
+ {
+  "base": "BR",
+  "secid": "BRJ6",
+  "expiry_year": 2026,
+  "month_code": "J"
+ },
+ {
+  "base": "BR",
+  "secid": "BRK6",
+  "expiry_year": 2026,
+  "month_code": "K"
+ },
+ {
+  "base": "BR",
+  "secid": "BRM6",
+  "expiry_year": 2026,
+  "month_code": "M"
+ },
+ {
+  "base": "BR",
+  "secid": "BRN6",
+  "expiry_year": 2026,
+  "month_code": "N"
+ },
+ {
+  "base": "BR",
+  "secid": "BRQ6",
+  "expiry_year": 2026,
+  "month_code": "Q"
+ },
+ {
+  "base": "BR",
+  "secid": "BRU6",
+  "expiry_year": 2026,
+  "month_code": "U"
+ },
+ {
+  "base": "BR",
+  "secid": "BRV6",
+  "expiry_year": 2026,
+  "month_code": "V"
+ },
+ {
+  "base": "BR",
+  "secid": "BRX6",
+  "expiry_year": 2026,
+  "month_code": "X"
+ },
+ {
+  "base": "BR",
+  "secid": "BRZ6",
+  "expiry_year": 2026,
+  "month_code": "Z"
+ }
+]

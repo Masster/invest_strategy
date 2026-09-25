@@ -101,8 +101,8 @@ def stage_data():
         bases = [b for b in TICKS if (DATA / b).exists() and any((DATA / b).glob("*.csv"))]
         uni = build_daily_universe(DATA, bases, ASOF)
     lines = ["# Качество данных (дневные свечи реальных серий, MOEX ISS)", "",
-             "DATA_QUALITY = LLM_TRANSCRIBED: данные получены через Firecrawl и перенесены в CSV языковой моделью;",
-             "прямой доступ к iss.moex.com из окружения закрыт. Ниже — автоматические проверки.", ""]
+             "DATA_QUALITY = DIRECT_ISS: свечи загружены напрямую из MOEX ISS (scripts/fetch_iss_daily.py);",
+             "SHA-256 файлов — data/manifests/iss_daily_sha256.csv. Ниже — автоматические проверки.", ""]
     for b, it in uni.items():
         s = it.stream
         lines.append(f"## {b}: {len(s)} торговых дней {s.index[0].date()} → {s.index[-1].date()}, серий {len(it.series)}")
@@ -153,7 +153,7 @@ def stage_dev(uni, ledger: Ledger, workers=None):
                spa_all=spa_all, rc_all=rc_all, pbo=pbo, fam_tests=fam_tests, specs=specs, errors=g["errors"])
     ledger.add(hypothesis="H-DAILY-GRID: хотя бы одно семейство дневных стратегий имеет положительное ожидание после издержек",
                strategy="ALL daily families", parameters=json.dumps({"grid": GRID_VERSION, "n_configs": len(configs)}),
-               data=f"ISS daily real series {sorted(uni)} (LLM_TRANSCRIBED)", period=f"{DEV_START}..{DEV_END}",
+               data=f"ISS daily real series {sorted(uni)} (DIRECT_ISS)", period=f"{DEV_START}..{DEV_END}",
                result=json.dumps(dict(best=best, best_sr_ann=float(sr_daily[best] * np.sqrt(252)),
                                       fdr=int(summ["fdr10_discovery"].sum()), spa=spa_all["pvalue"],
                                       rc=rc_all["pvalue"], pbo=pbo["pbo"], dsr=dsr["dsr"], n_eff=n_eff))[:1500],

@@ -1,8 +1,7 @@
 """Загрузка дневных свечей реальных серий фьючерсов MOEX (формат data/raw/iss_daily/<BASE>/<SECID>.csv).
 
-Происхождение данных: MOEX ISS `candles.json?interval=24`, получено через веб-скрейпер Firecrawl
-(прямой доступ к iss.moex.com из окружения закрыт) и перенесено в CSV языковой моделью.
-Поэтому набор помечается DATA_QUALITY=LLM_TRANSCRIBED и проходит автоматические проверки целостности.
+Происхождение данных: MOEX ISS `candles.json?interval=24`, прямая загрузка (scripts/fetch_iss_daily.py),
+DATA_QUALITY=DIRECT_ISS; набор проходит автоматические проверки целостности.
 Дневная свеча ISS для FORTS: дата = торговый день (включая вечернюю сессию предыдущего календарного дня).
 """
 from __future__ import annotations
