@@ -2,8 +2,9 @@
 
 Документация: https://developer.tbank.ru/invest (см. research/sources.md §1–3).
 Токен берётся ТОЛЬКО из переменной окружения TBANK_TOKEN; он не пишется в журнал, отчёты и исключения.
-В окружении этой сессии хосты T-Invest закрыты сетевой политикой: код не проверен на живом API
-(помечено как INTEGRATION_UNVERIFIED в tests/integration/test_tinvest_offline.py).
+TLS: сертификат *.tbank.ru выпущен НУЦ Минцифры (Russian Trusted Root CA) — его нет в стандартных
+хранилищах. Путь к бандлу с этим корнем задаётся TBANK_CA_BUNDLE (иначе — REQUESTS_CA_BUNDLE / системный).
+Проверено на живом API 2026-09-25 (песочница: инструменты, GetCandles).
 """
 from __future__ import annotations
 
@@ -48,15 +49,30 @@ class TInvestClient:
     def __post_init__(self):
         self._last = 0.0
         self._s = requests.Session()
+        # verify передаётся в каждый запрос: session.verify перекрывается REQUESTS_CA_BUNDLE из окружения
+        self._verify = os.environ.get("TBANK_CA_BUNDLE") or True
 
     def _post(self, service_method: str, body: dict) -> dict:
         base = SANDBOX if self.sandbox else PROD
         wait = self.min_interval_s - (time.monotonic() - self._last)
         if wait > 0:
             time.sleep(wait)
-        self._last = time.monotonic()
-        r = self._s.post(base + service_method, json=body, timeout=self.timeout,
-                         headers={"Authorization": f"Bearer {_token()}", "Content-Type": "application/json"})
+        r = None
+        for attempt in range(6):
+            self._last = time.monotonic()
+            try:
+                r = self._s.post(base + service_method, json=body, timeout=self.timeout, verify=self._verify,
+                                 headers={"Authorization": f"Bearer {_token()}", "Content-Type": "application/json"})
+            except requests.RequestException:
+                time.sleep(2 ** attempt)
+                continue
+            if r.status_code == 429 or r.status_code >= 500:
+                reset = r.headers.get("x-ratelimit-reset", "")
+                time.sleep(float(reset) + 1 if reset.isdigit() else 2 ** attempt)
+                continue
+            break
+        if r is None:
+            raise RuntimeError(f"T-Invest {service_method}: network error after retries")
         if r.status_code != 200:
             # тело ответа может содержать tracking id, но не токен; токен в исключение не попадает
             raise RuntimeError(f"T-Invest {service_method} HTTP {r.status_code}: {r.text[:300]}")
@@ -67,6 +83,11 @@ class TInvestClient:
         js = self._post("InstrumentsService/Futures", {"instrumentStatus": status})
         return pd.DataFrame(js.get("instruments", []))
 
+    def share(self, ticker: str, class_code: str = "TQBR") -> dict:
+        js = self._post("InstrumentsService/ShareBy", {"idType": "INSTRUMENT_ID_TYPE_TICKER", "classCode": class_code,
+                                                       "id": ticker})
+        return js["instrument"]
+
     def find(self, query: str) -> pd.DataFrame:
         js = self._post("InstrumentsService/FindInstrument", {"query": query})
         return pd.DataFrame(js.get("instruments", []))
@@ -76,9 +97,11 @@ class TInvestClient:
 
     # --- рыночные данные ---
     def candles(self, instrument_id: str, start: pd.Timestamp, end: pd.Timestamp,
-                interval: str = "CANDLE_INTERVAL_1_MIN") -> pd.DataFrame:
-        js = self._post("MarketDataService/GetCandles", {
-            "instrumentId": instrument_id, "from": start.isoformat(), "to": end.isoformat(), "interval": interval})
+                interval: str = "CANDLE_INTERVAL_1_MIN", limit: int | None = None) -> pd.DataFrame:
+        body = {"instrumentId": instrument_id, "from": start.isoformat(), "to": end.isoformat(), "interval": interval}
+        if limit:
+            body["limit"] = limit
+        js = self._post("MarketDataService/GetCandles", body)
         rows = [dict(ts=pd.Timestamp(c["time"]), open=quotation(c["open"]), high=quotation(c["high"]),
                      low=quotation(c["low"]), close=quotation(c["close"]), volume=float(c.get("volume", 0)),
                      complete=bool(c.get("isComplete", True))) for c in js.get("candles", [])]
@@ -115,6 +138,7 @@ class TInvestClient:
 def download_history_year(instrument_id: str, year: int, timeout: float = 120.0) -> pd.DataFrame:
     """Архив минутных свечей за год (ZIP с CSV без заголовка, ';', порядок: uid;time;open;close;high;low;volume)."""
     r = requests.get(HISTORY, params={"instrument_id": instrument_id, "year": year}, timeout=timeout,
+                     verify=os.environ.get("TBANK_CA_BUNDLE") or True,
                      headers={"Authorization": f"Bearer {_token()}"})
     if r.status_code == 429:
         raise RuntimeError("history-data rate limit (30/min)")

@@ -104,7 +104,13 @@ class RBreaker(Strategy):
     # ------------------------------------------------------------------
     def prepare(self, df: pd.DataFrame) -> pd.DataFrame:
         p = self.params
-        f = prev_day_hlc(df)
+        if "rb_prev_H" in df:
+            # признаки посчитаны по полной истории каждой серии (§7: после перекладки — история НОВОЙ серии)
+            f = pd.DataFrame({"prev_H": df["rb_prev_H"], "prev_L": df["rb_prev_L"], "prev_C": df["rb_prev_C"],
+                              "n_prev_days": df["rb_n_prev_days"], "median_volume_20": df["rb_median_volume_20"]},
+                             index=df.index)
+        else:
+            f = prev_day_hlc(df)
         H, L, C = f["prev_H"], f["prev_L"], f["prev_C"]
         ssetup = H + p["setup_k"] * (C - L)
         bsetup = L - p["setup_k"] * (H - C)
@@ -114,7 +120,10 @@ class RBreaker(Strategy):
         w = ssetup - bsetup
         bbreak = ssetup + p["breakout_k"] * w
         sbreak = bsetup - p["breakout_k"] * w
-        a, cnt = atr_completed_buckets(df, p["atr_bucket_min"], p["atr_n"])
+        if "rb_atr" in df and p["atr_bucket_min"] == 10 and p["atr_n"] == 14:
+            a, cnt = df["rb_atr"], df["rb_atr_cnt"]
+        else:
+            a, cnt = atr_completed_buckets(df, p["atr_bucket_min"], p["atr_n"])
         valid_hlc = (H > L) & (L <= C) & (C <= H)
         ordered = (sbreak < bsetup) & (bsetup < benter) & (benter < senter) & (senter < ssetup) & (ssetup < bbreak)
         hist_ok = (f["n_prev_days"] >= p["min_days"]) & (cnt >= p["min_atr_bars"])
@@ -184,3 +193,20 @@ class RBreaker(Strategy):
             if self.lower and c < be:
                 orders.append(EntryOrder(+1, "stop", be, "REVERSAL"))
         return orders
+
+
+class RBreakerConfigurable(RBreaker):
+    """Адаптер для сетки исследований: выходы задаются спецификацией (§29–35), ExitPolicy сетки игнорируется."""
+    name = "RBREAKER_2_1"
+
+    def __init__(self, params: dict | None = None, exits: ExitPolicy | None = None):
+        super().__init__(params)
+
+
+def series_features(series_df: pd.DataFrame, bucket_min: int = 10, n: int = 14) -> pd.DataFrame:
+    """Признаки R-Breaker, не зависящие от коэффициентов, по полной истории ОДНОЙ серии."""
+    f = prev_day_hlc(series_df)
+    a, cnt = atr_completed_buckets(series_df, bucket_min, n)
+    return pd.DataFrame({"rb_prev_H": f["prev_H"], "rb_prev_L": f["prev_L"], "rb_prev_C": f["prev_C"],
+                         "rb_n_prev_days": f["n_prev_days"], "rb_median_volume_20": f["median_volume_20"],
+                         "rb_atr": a, "rb_atr_cnt": cnt}, index=series_df.index)

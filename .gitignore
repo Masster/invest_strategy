@@ -11,3 +11,6 @@ data/cache/
 .env
 *.token
 secrets/
+# рабочая БД восстанавливается из снимка data/db/snapshot (Parquet, хранится в git)
+data/db/*.duckdb
+data/db/*.duckdb.wal

@@ -72,6 +72,7 @@ class RunSettings:
     commission_fraction: float = 0.00025
     risk_fraction: float = 0.005
     bar_seconds: float = 86400.0
+    risk_by_tag: tuple = ()           # (("REVERSAL", 0.0035), ...) — риск по типу сигнала (R-Breaker §39)
 
 
 def _execution(rs: RunSettings) -> ConservativeL1ExecutionModel:
@@ -89,8 +90,10 @@ def run_single(cfg: StrategyConfig, streams: dict[str, pd.DataFrame], specs: dic
     trades, daily = [], []
     for code, df in streams.items():
         st = cfg.build()
+        risk = RiskConfig.research(rs.risk_fraction)
+        risk.risk_fraction_by_tag = dict(rs.risk_by_tag)
         eng = Engine([InstrumentInput(code, specs[code], df, st, rs.bar_seconds)], execution=_execution(rs),
-                     risk=RiskConfig.research(rs.risk_fraction), initial_equity=1_000_000.0)
+                     risk=risk, initial_equity=1_000_000.0)
         res = eng.run()
         if not res.trades.empty:
             trades.append(res.trades)
@@ -235,6 +238,35 @@ def walk_forward(M: pd.DataFrame, families: dict[str, str], nb: dict[str, list[s
     return pd.DataFrame(rows), oos_df
 
 
+def walk_forward_periods(M: pd.DataFrame, families: dict[str, str], nb: dict[str, list[str]],
+                         folds: list[tuple[str, str, str]], min_train_days: int = 40, min_test_days: int = 10,
+                         min_active_days: int = 20) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Walk-forward с произвольными периодами: folds = [(train_start, test_start, test_end)], обучение
+    [train_start, test_start), проверка [test_start, test_end]. Выбор — robust_score внутри семьи."""
+    rows, oos = [], {}
+    idx = M.index
+    tz = idx.tz
+    for tr0, te0, te1 in folds:
+        tr = M[(idx >= pd.Timestamp(tr0, tz=tz)) & (idx < pd.Timestamp(te0, tz=tz))]
+        te = M[(idx >= pd.Timestamp(te0, tz=tz)) & (idx <= pd.Timestamp(te1, tz=tz))]
+        if len(tr) < min_train_days or len(te) < min_test_days:
+            continue
+        score = robust_score(tr, nb, min_active_days)
+        for fam in sorted(set(families.values())):
+            cols = [c for c in M.columns if families[c] == fam]
+            s = score[cols]
+            if not np.isfinite(s.max()):
+                continue
+            best = s.idxmax()
+            r = te[best]
+            rows.append(dict(family=fam, test_period=te0[:7], selected=best, train_score=float(s.max()),
+                             test_sharpe=float(r.mean() / (r.std(ddof=1) + 1e-12) * np.sqrt(252)),
+                             test_return=float(r.sum()), test_days=len(r)))
+            oos.setdefault(fam, []).append(r)
+    oos_df = pd.DataFrame({k: pd.concat(v) for k, v in oos.items()}).fillna(0.0) if oos else pd.DataFrame()
+    return pd.DataFrame(rows), oos_df
+
+
 # ---------------------------------------------------------------------------
 class Ledger:
     def __init__(self, path: str | Path):
@@ -282,5 +314,5 @@ def expand_grid(family: str, axes: dict[str, list], fixed: dict | None = None,
 
 
 __all__ = ["StrategyConfig", "make_config", "RunSettings", "run_single", "run_grid", "returns_matrix", "summarize",
-           "neighbors", "robust_score", "walk_forward", "Ledger", "expand_grid", "git_commit", "config_hash",
+           "neighbors", "robust_score", "walk_forward", "walk_forward_periods", "Ledger", "expand_grid", "git_commit", "config_hash",
            "asdict", "field", "copy"]

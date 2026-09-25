@@ -380,6 +380,63 @@ class RandomEntry(_Base):
         return []
 
 
+# ---------------------------------------------------------------------------
+# 8.6 Внутридневные
+class OpeningRangeBreakout(_Base):
+    """Пробой диапазона открытия: high/low первых n минут основной сессии (10:00 МСК) текущего торгового дня;
+    после завершения диапазона — стоп-заявки на его границах, не более одного входа в день на направление.
+    Стоп — из ExitPolicy (ATR) либо противоположная граница диапазона (initial="structural")."""
+    name, family = "ID_ORB", "intraday_breakout"
+
+    def prepare(self, df):
+        v = signal_view(df)
+        n = int(self.params["n_min"])
+        msk = df.index.tz_convert("Europe/Moscow")
+        mins = msk.hour * 60 + msk.minute
+        step = (df.index[1] - df.index[0]).seconds // 60 if len(df) > 1 else 1
+        step = max(1, min(step, 60))
+        in_rng = (mins >= 600) & (mins + step <= 600 + n)
+        day = df["trading_day"].astype(str).to_numpy()
+        hi = pd.Series(np.where(in_rng, v["high"], np.nan), index=df.index).groupby(day).cummax()
+        lo = pd.Series(np.where(in_rng, v["low"], np.nan), index=df.index).groupby(day).cummin()
+        done = pd.Series(mins + step >= 600 + n, index=df.index)
+        hi = hi.groupby(day).ffill()
+        lo = lo.groupby(day).ffill()
+        return pd.DataFrame({"atr": _atr(v), "rng_hi": hi.where(done), "rng_lo": lo.where(done),
+                             "adj_shift": df.get("adj_shift", pd.Series(0.0, index=df.index))}, index=df.index)
+
+    def reset(self):
+        self._day, self._done = None, set()
+
+    def on_bar_close(self, i, ctx):
+        if ctx.trading_day != self._day:
+            self._day, self._done = ctx.trading_day, set()
+        if ctx.entered_dir:
+            self._done.add(ctx.entered_dir)
+        if not (ctx.flat and ctx.entry_ok):
+            return []
+        f = self.f
+        h, l_ = f["rng_hi"][i], f["rng_lo"][i]
+        if not (np.isfinite(h) and np.isfinite(l_) and np.isfinite(f["atr"][i])):
+            return []
+        sh = self._adj(i)
+        c = self._cl[i]
+        out = []
+        if 1 in self._dirs() and 1 not in self._done and c < h - sh:
+            out.append(EntryOrder(+1, "stop", h - sh, "ORB", structural_stop=l_ - sh))
+        if -1 in self._dirs() and -1 not in self._done and c > l_ - sh:
+            out.append(EntryOrder(-1, "stop", l_ - sh, "ORB", structural_stop=h - sh))
+        return out
+
+
 FAMILIES = {c.name: c for c in [DonchianBreakout, EMACross, SuperTrendFollow, TimeSeriesMomentum, ZScoreReversion,
                                 RSIReversion, VWAPReversion, SqueezeBreakout, RangeExpansion, VolumeBreakout,
-                                RBreakerDailyApprox, RandomEntry]}
+                                RBreakerDailyApprox, RandomEntry, OpeningRangeBreakout]}
+
+
+def _register_rbreaker():
+    from .rbreaker import RBreakerConfigurable
+    FAMILIES[RBreakerConfigurable.name] = RBreakerConfigurable
+
+
+_register_rbreaker()
