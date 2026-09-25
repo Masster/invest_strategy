@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/
+# market data is never committed (size, licensing)
+data/raw/
+data/normalized/
+data/cache/
+# secrets
+.env
+*.token
+secrets/
