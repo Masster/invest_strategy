@@ -108,13 +108,14 @@ class BacktestResult:
 class Engine:
     def __init__(self, instruments: list[InstrumentInput], execution: ExecutionModel | None = None,
                  risk: RiskConfig | None = None, initial_equity: float = 1_000_000.0,
-                 groups: dict[str, str] | None = None, record_events: bool = False):
+                 groups: dict[str, str] | None = None, record_events: bool = False, close_at_end: bool = True):
         self.ins = instruments
         self.exe = execution or ConservativeL1ExecutionModel(commission=CommissionModel())
         self.risk = risk or RiskConfig()
         self.initial_equity = initial_equity
         self.groups = groups or {x.code: x.spec.group for x in instruments}
         self.record_events = record_events
+        self.close_at_end = close_at_end
 
     # ------------------------------------------------------------------
     def run(self) -> BacktestResult:
@@ -505,7 +506,7 @@ class Engine:
                         do_exit(k, i, c, p.qty_open, "FORCE_CLOSE")
                     elif nxt_sec is not None and nxt_sec != p.secid:
                         do_exit(k, i, c, p.qty_open, "ROLL")
-                    elif i + 1 >= a["n"]:
+                    elif i + 1 >= a["n"] and self.close_at_end:
                         do_exit(k, i, c, p.qty_open, "END_OF_DATA")
                 # --- 4. решение на закрытии свечи ---
                 ctx = BarContext(flat=positions[k] is None, entry_ok=bool(a["entry_ok"][i]),
@@ -517,7 +518,8 @@ class Engine:
                 allowed = (positions[k] is None and ctx.entry_ok and not (halted_day or halted_week or halted_manual)
                            and (R.max_entries_per_instrument_per_day is None
                                 or entries_today[k] < R.max_entries_per_instrument_per_day)
-                           and i + 1 < a["n"] and a["secid"][i + 1] == a["secid"][i])
+                           and (i + 1 >= a["n"] and not self.close_at_end
+                                or i + 1 < a["n"] and a["secid"][i + 1] == a["secid"][i]))
                 pending[k] = list(orders) if allowed else []
             # --- 5. портфельные ограничения на закрытии метки времени ---
             eq = mtm_equity()
@@ -542,8 +544,11 @@ class Engine:
         equity = pd.Series(eq_val, index=pd.DatetimeIndex(eq_ts), name="equity")
         daily = pd.Series(eq_val, index=eq_day).groupby(level=0).last()
         daily.index = pd.to_datetime(daily.index)
+        open_pos = {self.ins[k].code: self._view(p) for k, p in enumerate(positions) if p is not None}
+        pend = {self.ins[k].code: list(pending[k]) for k in range(n_ins) if pending[k]}
         return BacktestResult(trades=tr, equity=equity, daily_equity=daily, events=events,
-                              meta=dict(initial_equity=self.initial_equity, halted_manual=halted_manual))
+                              meta=dict(initial_equity=self.initial_equity, halted_manual=halted_manual,
+                                        pending_orders=pend, open_positions=open_pos))
 
     @staticmethod
     def _flatten(positions, reason, pending):
