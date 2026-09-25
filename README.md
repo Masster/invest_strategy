@@ -8,7 +8,8 @@
 pip install -r requirements.txt
 pytest                                   # модульные, интеграционные тесты и тесты причинности
 python3 scripts/validate_pipeline.py     # проверка статистики на синтетике (NULL / PLANTED)
-python3 scripts/run_daily_research.py    # дневное исследование на реальных сериях (data/raw/iss_daily)
+TBANK_CA_BUNDLE=/root/.certs/ca-bundle-ru.crt python3 scripts/fetch_tinvest_data.py   # данные T-Invest -> data/db
+python3 scripts/run_intraday_research.py # исследование года (R-Breaker 2.1, внутридневные, дневной свинг)
 python3 scripts/run_intraday_research.py --synthetic   # сухой прогон R-Breaker 2.1
 ```
 
@@ -19,10 +20,14 @@ python3 scripts/run_intraday_research.py --synthetic   # сухой прогон
 * Источники фактов (тарифы, API, биржа): `research/sources.md`
 * Допущения: `docs/ASSUMPTIONS.md`; исходная спецификация: `docs/rbreaker_moex_v2_1_spec.md`
 
+## Данные
+Единственный источник — T-Invest API. Локальная база: `data/db/market.duckdb`, переносимый снимок — `data/db/snapshot`
+(Parquet, в git). Схема и примеры чтения для других инструментов: `data/db/README.md`.
+
 ## Архитектура
 ```
 src/moexlab/
-  market_data/   календарь FORTS, агрегация, поток активной серии, загрузчик ISS, синтетика (только тесты)
+  market_data/   календарь FORTS, агрегация, поток активной серии, загрузка из БД, синтетика (только тесты)
   contracts/     коды серий, выбор активной серии (перекладка)
   instruments/   спецификация инструмента (без зашитых рыночных фактов)
   indicators/    каузальные индикаторы
@@ -32,6 +37,7 @@ src/moexlab/
   risk/          размер позиции, анализ цели доходности (Келли)
   statistics/    метрики, бутстреп, FDR, DSR, PBO, White RC, Hansen SPA, Монте-Карло
   research/      сетка гипотез, walk-forward, журнал экспериментов, тест причинности
+  storage/       локальная БД рыночных данных (DuckDB + снимок Parquet)
   reporting/     графики
   broker/        T-Invest REST (чтение + песочница)
   shadow/        SHADOW: тот же движок на живом потоке, заявки не отправляются

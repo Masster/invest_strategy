@@ -1,6 +1,6 @@
 import pandas as pd
 
-from moexlab.market_data.iss_daily import split_adjust
+from moexlab.market_data.quality import split_adjust
 
 
 def test_reverse_split_5000_is_adjusted():

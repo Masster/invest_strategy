@@ -1,7 +1,7 @@
 """Параметры инструмента.
 
 Здесь НЕТ зашитых рыночных фактов (шаг цены, стоимость шага, ГО): они загружаются из метаданных
-источника (MOEX ISS `securities`, T-Invest `InstrumentsService`) в data/normalized/instruments.json.
+источника — T-Invest `InstrumentsService` (таблица instruments в data/db/market.duckdb).
 Для синтетических данных используются явно помеченные синтетические спецификации.
 """
 from __future__ import annotations
