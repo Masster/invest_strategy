@@ -60,6 +60,11 @@
 
 ---
 
+### 1.9 TLS-сертификат T-Invest
+- Сертификат `*.tbank.ru` (invest-public-api.tbank.ru) выдан цепочкой «Russian Trusted Sub CA» → «Russian Trusted Root CA» (Минцифры РФ); корня нет в стандартных наборах (certifi, Debian). Без добавления корня requests/curl падают с «self-signed certificate in certificate chain». — проверено запросом из контейнера — 2026-09-25 — VERIFIED
+- Корневой и промежуточный сертификаты: https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt, https://gu-st.ru/content/lending/russian_trusted_sub_ca_pem.crt (официальный хост Госуслуг). SHA-256: root `D26D2D02…CA8ECF31` (до 2032-02-27), sub `BBBDE210…D8B3FD9B` (до 2027-03-06); отпечатки закреплены в `scripts/setup_tinvest_ca.py`. Файлы в CRLF без завершающего перевода строки. — 2026-09-25 — VERIFIED (загрузка), отпечаток корня совпадает с публикуемым Минцифры — SECONDARY
+- После сборки bundle `InstrumentsService/Futures` вернул 3013 инструментов (TLS-проверка включена). — 2026-09-25 — VERIFIED
+
 ## 2. Песочница
 
 - Все методы вызываются по адресу `sandbox-invest-public-api.tbank.ru:443` с теми же контрактами, что и в prod. — https://developer.tbank.ru/invest/intro/developer/sandbox/ — 2026-09-25 — VERIFIED

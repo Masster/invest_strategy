@@ -1,12 +1,15 @@
-"""Прямая загрузка дневных свечей из MOEX ISS (history) — реальные серии фьючерсов и акции TQBR.
+"""Прямая загрузка дневных свечей MOEX ISS (DATA_QUALITY = DIRECT_ISS).
 
-python3 scripts/fetch_iss_daily.py [--futures] [--equities] [--from 2020-01-01]
-Результат:
-  data/raw/iss_daily/<BASE>/<SECID>.csv        (date,open,high,low,close,volume,open_interest)
-  data/raw/iss_equity_daily/<TICKER>.csv        (date,open,high,low,close,volume)
-  data/raw/iss_manifest.json                    (источник, дата загрузки, число строк, sha256)
-Источник: https://iss.moex.com/iss/history/engines/... (DATA_QUALITY = ISS_DIRECT).
-Дни без сделок (OPEN/CLOSE пусты или объём 0) отбрасываются.
+Планы загрузки (воспроизводимые списки серий) пишутся в data/raw/iss_daily/plan_{A,B,C}.json
+и копируются в data/manifests/ (коммитятся вместе с SHA-256 каждого файла; сами CSV не коммитятся:
+репозиторий публичный, а данные MOEX не подлежат перераспространению):
+  A — квартальные фьючерсы Si RI MX GD SR GZ CR (месяцы H M U Z), 2020 → 2026-12;
+  B — месячные фьючерсы BR, 2020-01 → 2026-12;
+  C — акции TQBR (12 тикеров).
+Формат результата: data/raw/iss_daily/<BASE>/<SECID>.csv и data/raw/iss_equity_daily/<TICKER>.csv
+с колонками date,open,high,low,close,volume. Дата свечи FORTS в ISS = торговый день.
+
+Запуск: python3 scripts/fetch_iss_daily.py [--plans A,B,C] [--from 2019-06-01] [--till 2026-09-25]
 """
 from __future__ import annotations
 
@@ -15,99 +18,114 @@ import hashlib
 import json
 import sys
 import time
-from datetime import date
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
 import requests
 
 ROOT = Path(__file__).resolve().parents[1]
-ISS = "https://iss.moex.com/iss/history/engines"
+FUT_DIR = ROOT / "data/raw/iss_daily"
+EQ_DIR = ROOT / "data/raw/iss_equity_daily"
+MANIFESTS = ROOT / "data/manifests"
+ISS = "https://iss.moex.com/iss"
 QUARTERLY = ["Si", "RI", "MX", "GD", "SR", "GZ", "CR"]
 MONTHLY = ["BR"]
 MONTH_CODES = "FGHJKMNQUVXZ"
 EQUITIES = ["SBER", "GAZP", "LKOH", "ROSN", "GMKN", "NVTK", "TATN", "MGNT", "PLZL", "VTBR", "ALRS", "AFLT"]
 
 
-def fetch_history(path: str, start: str, cols: str, s: requests.Session) -> pd.DataFrame:
-    rows, pos = [], 0
+def build_plans(first_year: int = 2020, last_year: int = 2026) -> dict[str, list[dict]]:
+    """Коды серий <BASE><месяц><последняя цифра года>. Цифры 0..6 однозначно = 2020..2026."""
+    a, b = [], []
+    for y in range(first_year, last_year + 1):
+        for base in QUARTERLY:
+            for m in "HMUZ":
+                a.append(dict(base=base, secid=f"{base}{m}{y % 10}", expiry_year=y, month_code=m))
+        for base in MONTHLY:
+            for m in MONTH_CODES:
+                b.append(dict(base=base, secid=f"{base}{m}{y % 10}", expiry_year=y, month_code=m))
+    c = [dict(base=t, secid=t, board="TQBR") for t in EQUITIES]
+    return {"A": a, "B": b, "C": c}
+
+
+def fetch_candles(url: str, frm: str, till: str, session: requests.Session) -> pd.DataFrame:
+    rows, start = [], 0
     while True:
-        r = s.get(f"{ISS}/{path}.json", timeout=60, params={
-            "iss.meta": "off", "from": start, "start": pos, "history.columns": cols})
-        r.raise_for_status()
-        js = r.json()
-        h = js["history"]
-        rows += h["data"]
-        idx, total, size = js["history.cursor"]["data"][0]
-        pos = idx + size
-        if pos >= total or not h["data"]:
+        params = {"interval": 24, "from": frm, "till": till, "iss.meta": "off", "start": start}
+        for attempt in range(5):
+            try:
+                r = session.get(url, params=params, timeout=30)
+                r.raise_for_status()
+                js = r.json()["candles"]
+                break
+            except Exception:  # сеть/ISS: повтор с паузой
+                if attempt == 4:
+                    raise
+                time.sleep(2 ** attempt)
+        data = js["data"]
+        rows += [dict(zip(js["columns"], d)) for d in data]
+        if len(data) < 500:
             break
-        time.sleep(0.05)
-    return pd.DataFrame(rows, columns=cols.split(","))
+        start += len(data)
+    if not rows:
+        return pd.DataFrame(columns=["date", "open", "high", "low", "close", "volume"])
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["begin"]).dt.strftime("%Y-%m-%d")
+    df = df[["date", "open", "high", "low", "close", "volume"]].drop_duplicates("date").sort_values("date")
+    return df
 
 
-def clean(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.rename(columns={"TRADEDATE": "date", "OPEN": "open", "HIGH": "high", "LOW": "low", "CLOSE": "close",
-                            "VOLUME": "volume", "OPENPOSITION": "open_interest"})
-    df = df.dropna(subset=["open", "high", "low", "close"])
-    df = df[df["volume"].fillna(0) > 0]
-    # на TQBR бывают дубликаты режимов торгов — оставляем строку с максимальным объёмом
-    df = df.sort_values(["date", "volume"]).drop_duplicates("date", keep="last").sort_values("date")
-    return df.drop(columns=[c for c in ("SECID", "BOARDID") if c in df.columns]).reset_index(drop=True)
-
-
-def futures_secids(base: str, y0: int, y1: int) -> list[str]:
-    months = MONTH_CODES if base in MONTHLY else "HMUZ"
-    return [f"{base}{m}{y % 10}" for y in range(y0, y1 + 1) for m in months]
+def fetch_item(item: dict, plan: str, frm: str, till: str, session: requests.Session) -> tuple[str, int]:
+    if plan == "C":
+        url = f"{ISS}/engines/stock/markets/shares/boards/{item['board']}/securities/{item['secid']}/candles.json"
+        out = EQ_DIR / f"{item['secid']}.csv"
+    else:
+        url = f"{ISS}/engines/futures/markets/forts/securities/{item['secid']}/candles.json"
+        out = FUT_DIR / item["base"] / f"{item['secid']}.csv"
+    df = fetch_candles(url, frm, till, session)
+    # серии без сделок (свечи с нулевым объёмом) не нужны: цены там — расчётные, не торговые
+    df = df[df["volume"] > 0]
+    if df.empty:
+        return item["secid"], 0
+    out.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out, index=False)
+    return item["secid"], len(df)
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--futures", action="store_true")
-    ap.add_argument("--equities", action="store_true")
-    ap.add_argument("--from", dest="start", default="2020-01-01")
+    ap.add_argument("--plans", default="A,B,C")
+    ap.add_argument("--from", dest="frm", default="2019-06-01")
+    ap.add_argument("--till", default="2026-09-25")
+    ap.add_argument("--workers", type=int, default=6)
     a = ap.parse_args()
-    if not (a.futures or a.equities):
-        a.futures = a.equities = True
-    s = requests.Session()
-    man_p = ROOT / "data/raw/iss_manifest.json"
-    manifest = json.loads(man_p.read_text()) if man_p.exists() else {}
-    y0, y1 = int(a.start[:4]), date.today().year + 1
-    if a.futures:
-        cols = "TRADEDATE,SECID,OPEN,LOW,HIGH,CLOSE,VOLUME,OPENPOSITION"
-        for base in QUARTERLY + MONTHLY:
-            for secid in futures_secids(base, y0, y1):
-                df = clean(fetch_history(f"futures/markets/forts/securities/{secid}", a.start, cols, s))
-                # код серии повторяется каждые 10 лет: оставляем торги не раньше чем за 2 года до экспирации
-                if df.empty:
-                    continue
-                exp_year = y0 + (int(secid[-1]) - y0) % 10
-                while exp_year < pd.Timestamp(df["date"].iloc[-1]).year:
-                    exp_year += 10
-                df = df[pd.to_datetime(df["date"]).dt.year >= exp_year - 2]
-                if df.empty:
-                    continue
-                p = ROOT / "data/raw/iss_daily" / base / f"{secid}.csv"
-                p.parent.mkdir(parents=True, exist_ok=True)
-                df.to_csv(p, index=False)
-                manifest[str(p.relative_to(ROOT))] = dict(
-                    source=f"{ISS}/futures/markets/forts/securities/{secid}.json", rows=len(df),
-                    first=df["date"].iloc[0], last=df["date"].iloc[-1], fetched=str(date.today()),
-                    sha256=hashlib.sha256(p.read_bytes()).hexdigest())
-                print(secid, len(df), df["date"].iloc[0], df["date"].iloc[-1], flush=True)
-    if a.equities:
-        cols = "TRADEDATE,BOARDID,OPEN,LOW,HIGH,CLOSE,VOLUME"
-        for t in EQUITIES:
-            df = clean(fetch_history(f"stock/markets/shares/boards/TQBR/securities/{t}", a.start, cols, s))
-            p = ROOT / "data/raw/iss_equity_daily" / f"{t}.csv"
-            p.parent.mkdir(parents=True, exist_ok=True)
-            df.to_csv(p, index=False)
-            manifest[str(p.relative_to(ROOT))] = dict(
-                source=f"{ISS}/stock/markets/shares/boards/TQBR/securities/{t}.json", rows=len(df),
-                first=df["date"].iloc[0], last=df["date"].iloc[-1], fetched=str(date.today()),
-                sha256=hashlib.sha256(p.read_bytes()).hexdigest())
-            print(t, len(df), df["date"].iloc[0], df["date"].iloc[-1], flush=True)
-    man_p.write_text(json.dumps(manifest, indent=1, ensure_ascii=False))
+    plans = build_plans()
+    FUT_DIR.mkdir(parents=True, exist_ok=True)
+    for k, v in plans.items():
+        (FUT_DIR / f"plan_{k}.json").write_text(json.dumps(v, indent=1), encoding="utf-8")
+    session = requests.Session()
+    summary = {}
+    for k in a.plans.split(","):
+        items = plans[k]
+        with ThreadPoolExecutor(a.workers) as ex:
+            res = list(ex.map(lambda it: fetch_item(it, k, a.frm, a.till, session), items))
+        got = {s: n for s, n in res if n}
+        summary[k] = dict(requested=len(items), with_data=len(got), bars=sum(got.values()))
+        print(f"plan {k}: {summary[k]}", flush=True)
+    summ = json.dumps(dict(source="MOEX ISS direct", frm=a.frm, till=a.till, plans=summary), indent=1)
+    (FUT_DIR / "fetch_summary.json").write_text(summ, encoding="utf-8")
+    MANIFESTS.mkdir(parents=True, exist_ok=True)
+    (MANIFESTS / "iss_daily_fetch_summary.json").write_text(summ, encoding="utf-8")
+    for k, v in plans.items():
+        (MANIFESTS / f"iss_daily_plan_{k}.json").write_text(json.dumps(v, indent=1), encoding="utf-8")
+    rows = []
+    for d in (FUT_DIR, EQ_DIR):
+        for p in sorted(d.rglob("*.csv")):
+            b = p.read_bytes()
+            rows.append(dict(path=str(p.relative_to(ROOT)), rows=b.count(b"\n") - 1,
+                             sha256=hashlib.sha256(b).hexdigest()))
+    pd.DataFrame(rows).to_csv(MANIFESTS / "iss_daily_sha256.csv", index=False)
 
 
 if __name__ == "__main__":

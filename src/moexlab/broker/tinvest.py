@@ -2,9 +2,10 @@
 
 Документация: https://developer.tbank.ru/invest (см. research/sources.md §1–3).
 Токен берётся ТОЛЬКО из переменной окружения TBANK_TOKEN; он не пишется в журнал, отчёты и исключения.
-TLS: сертификат *.tbank.ru выпущен НУЦ Минцифры (Russian Trusted Root CA) — его нет в стандартных
-хранилищах. Путь к бандлу с этим корнем задаётся TBANK_CA_BUNDLE (иначе — REQUESTS_CA_BUNDLE / системный).
-Проверено на живом API 2026-09-25 (песочница: инструменты, GetCandles).
+TLS: сертификат *.tbank.ru выдан «Russian Trusted Root CA» (Минцифры), которого нет в стандартных наборах.
+Проверка TLS не отключается: используется отдельный bundle (scripts/setup_tinvest_ca.py) — параметр
+`ca_bundle` или переменная TINVEST_CA_BUNDLE (по умолчанию ~/.tinvest/ca-bundle.crt, если файл есть).
+Bundle применяется только к запросам этого модуля, а не глобально (REQUESTS_CA_BUNDLE не меняется).
 """
 from __future__ import annotations
 
@@ -21,6 +22,15 @@ import requests
 PROD = "https://invest-public-api.tbank.ru/rest/tinkoff.public.invest.api.contract.v1."
 SANDBOX = "https://sandbox-invest-public-api.tbank.ru/rest/tinkoff.public.invest.api.contract.v1."
 HISTORY = "https://invest-public-api.tbank.ru/history-data"
+DEFAULT_CA = os.path.expanduser("~/.tinvest/ca-bundle.crt")
+
+
+def ca_bundle_path(explicit: str | None = None) -> str | bool:
+    """Путь к CA-bundle для T-Invest; True = стандартная проверка requests (никогда не False)."""
+    for p in (explicit, os.environ.get("TINVEST_CA_BUNDLE"), os.environ.get("TBANK_CA_BUNDLE"), DEFAULT_CA):
+        if p and os.path.exists(p):
+            return p
+    return True
 
 
 class TokenMissing(RuntimeError):
@@ -45,12 +55,13 @@ class TInvestClient:
     sandbox: bool = True
     timeout: float = 30.0
     min_interval_s: float = 0.12   # ≤ ~8 запросов/с (лимит MarketData 600/мин)
+    ca_bundle: str | None = None
 
     def __post_init__(self):
         self._last = 0.0
         self._s = requests.Session()
-        # verify передаётся в каждый запрос: session.verify перекрывается REQUESTS_CA_BUNDLE из окружения
-        self._verify = os.environ.get("TBANK_CA_BUNDLE") or True
+        # verify передаётся в каждый запрос: Session.verify перекрывается переменной REQUESTS_CA_BUNDLE
+        self._verify = ca_bundle_path(self.ca_bundle)
 
     def _post(self, service_method: str, body: dict) -> dict:
         base = SANDBOX if self.sandbox else PROD
@@ -135,11 +146,13 @@ class TInvestClient:
         return self._post("SandboxService/PostSandboxOrder", body)
 
 
-def download_history_year(instrument_id: str, year: int, timeout: float = 120.0) -> pd.DataFrame:
+def download_history_year(instrument_id: str, year: int, timeout: float = 120.0,
+                          ca_bundle: str | None = None) -> pd.DataFrame:
     """Архив минутных свечей за год (ZIP с CSV без заголовка, ';', порядок: uid;time;open;close;high;low;volume)."""
     r = requests.get(HISTORY, params={"instrument_id": instrument_id, "year": year}, timeout=timeout,
-                     verify=os.environ.get("TBANK_CA_BUNDLE") or True,
-                     headers={"Authorization": f"Bearer {_token()}"})
+                     headers={"Authorization": f"Bearer {_token()}"}, verify=ca_bundle_path(ca_bundle))
+    if r.status_code == 404:
+        return pd.DataFrame()   # нет данных за этот год
     if r.status_code == 429:
         raise RuntimeError("history-data rate limit (30/min)")
     if r.status_code != 200:
